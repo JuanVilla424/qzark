@@ -3,7 +3,7 @@
 
 def test_main():
     """
-    Test Main Python File (app/main.py) -
+    Test Main Python File (app/main.py)
 
     :return: Result (Boolean)
     """
