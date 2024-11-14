@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "backend"
-version = "1.0.8"
-description = "Github CICD Template Repository."
+name = "qzark-backend"
+version = "1.0.1"
+description = "Qzark is a crontab task runner written in python and typescript to control HTTP or command invokes."
 authors = ["B <g46327wsj1.marbling129@passinbox.com>"]
-license = "Other"
+license = "GLPv2"
 readme = "README.md"
 package-mode = false
 
@@ -39,6 +39,7 @@ exclude = '''
   | \.mypy_cache
   | \.tox
   | \.venv
+  | venv
   | _build
   | buck-out
   | build
@@ -65,5 +66,5 @@ ensure_newline_before_comments = true
 rcfile = ".pylintrc"
 
 [build-system]
-requires = ["poetry-core>=1.0.8"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
