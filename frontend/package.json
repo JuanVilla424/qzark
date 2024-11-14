@@ -1,7 +1,7 @@
 {
-  "name": "frontend",
-  "version": "1.0.8",
-  "description": "frontend github cicd sample",
+  "name": "qzark-frontend",
+  "version": "1.0.1",
+  "description": "Qzark is a crontab task runner written in python and typescript to control HTTP or command invokes.",
   "private": "true",
   "dependencies": {
     "@tanstack/react-query": "^4.29.0",
