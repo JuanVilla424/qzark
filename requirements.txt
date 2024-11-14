@@ -18,7 +18,7 @@ black>=24.3.0
 
 # Pytest for Unit/Integration Testing
 pytest>=7.3.1
-pytest-cov>=4.0.0
+pytest-cov>=6.0.0
 
 # Coverage Reporting
 coverage>=7.2.5

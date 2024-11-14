@@ -1,4 +1,4 @@
-# 🤝 Contributing to github-cicd-template
+# 🤝 Contributing to qzark
 
 We welcome contributions to github-cicd-template! To make sure the process goes smoothly, please follow these guidelines:
 
