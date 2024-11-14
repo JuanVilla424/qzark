@@ -23,6 +23,8 @@ black="^24.3.0"
 pytest = "^8.3.1"
 httpx = "^0.24.0"
 pytest-cov = "^6.0.0"
+alembic = "^1.11.1"
+yamllint = "^1.35.0"
 coverage = "^7.2.5"
 
 [tool.poetry.extras]
