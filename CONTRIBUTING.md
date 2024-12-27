@@ -1,6 +1,6 @@
 # 🤝 Contributing to qzark
 
-We welcome contributions to github-cicd-template! To make sure the process goes smoothly, please follow these guidelines:
+We welcome contributions to qzark! To make sure the process goes smoothly, please follow these guidelines:
 
 ## 📋 Code of Conduct
 
