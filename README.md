@@ -3,13 +3,13 @@
 ![CI/CD](https://img.shields.io/badge/CI/CD-Pipeline-blue)
 ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=fff)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
-![Build Status](https://github.com/JuanVilla424/github-cicd-template/actions/workflows/ci.yml/badge.svg?branch=main)
+![Build Status](https://github.com/JuanVilla424/qzark/actions/workflows/ci.yml/badge.svg?branch=main)
 ![Status](https://img.shields.io/badge/Status-Development-blue.svg)
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
-Welcome to the **GitHub CI/CD Template** repository! This project provides a robust and flexible CI/CD pipeline setup using GitHub Actions, tailored for project using Python for backend, node frontend, docker-compose or Dockerfile. Leverage this template to automate your development workflow, from testing and building to deployment and monitoring.
-
-<img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwww.pngkey.com%2Fpng%2Ffull%2F178-1787243_github-icon-png.png&f=1&nofb=1&ipt=913bc5d745baa725efe14b20bdf6ca3f91044c2be909e8504cc79f13dc0b1729&ipo=images" width="112" alt="CI/CD">
+Welcome to **Qzark**, a lightweight, Python-based crontab-like task runner designed to manage and execute scheduled
+tasks without relying on external cron services. Qzark reads tasks from a YAML configuration file, schedules them
+internally, and sends notifications on task failures via Telegram, Discord, or SMTP.
 
 ## 📚 Table of Contents
 
@@ -17,9 +17,7 @@ Welcome to the **GitHub CI/CD Template** repository! This project provides a rob
 - [Getting Started](#-getting-started)
   - [Prerequisites](#-prerequisites)
   - [Installation](#-installation)
-  - [Environment Setup](#-environment-setup)
-  - [Pre-Commit Hooks](#-pre-commit-hooks)
-  - [Extra Steps](#-extra-steps)
+  - [Configuration](#-configuration)
 - [Usage](#-usage)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -27,11 +25,11 @@ Welcome to the **GitHub CI/CD Template** repository! This project provides a rob
 
 ## 🌟 Features
 
-- **Automated Testing:** Run tests automatically on each push and pull request.
-- **Continuous Deployment:** Deploy your application seamlessly to your chosen platform.
-- **Code Quality Checks:** Enforce coding standards with linting and formatting tools.
-- **Build Optimization:** Optimize build processes for faster deployment cycles.
-- **Notifications:** Receive updates and alerts on pipeline status via email or chat integrations.
+- **Task Scheduling:** Schedule tasks internally without relying on external cron services.
+- **YAML Configuration:** Define tasks in a simple `tasks.yaml` file.
+- **Notifications:** Receive alerts on task failures via Telegram, Discord, or SMTP.
+- **Queue-Based Execution:** Tasks are managed using a queue-based mechanism for efficient execution.
+- **Customizable Timeout:** Set task execution timeouts via command-line arguments.
 
 ## 🚀 Getting Started
 
@@ -39,38 +37,30 @@ Welcome to the **GitHub CI/CD Template** repository! This project provides a rob
 
 **Before you begin, ensure you have met the following requirements**:
 
-- **GitHub Account:** You need a GitHub account to use GitHub Actions.
-- **Python 3.12+:** Ensure Python is installed on your local machine.
+- **Python 3.11+:** Ensure Python is installed on your local machine.
 - **Git:** Install [Git](https://git-scm.com/) to clone the repository.
-- **NVM:** (Optional) Node.js installation environment versions control
-- **Node.js 22.x+**: (Optional) (Required to Push) Used as lint orchestration manager in pre-commit and pre-push
 
 ### 🔨 Installation
 
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/JuanVilla424/github-cicd-template.git
+   git clone https://github.com/JuanVilla424/qzark.git
    ```
 
-2. Navigate to the Project Directory
+2. **Navigate to the Project Directory**
+
    ```bash
-    cd github-cicd-template
+   cd qzark
    ```
 
-### 🔧 Environment Setup
-
-**Mandatory: Setting Up a Python Virtual Environment**
-
-Setting up a Python virtual environment ensures that dependencies are managed effectively and do not interfere with other projects.
-
-1. **Create a Virtual Environment**
+3. **Set Up a Python Virtual Environment**
 
    ```bash
    python -m venv venv
    ```
 
-2. **Activate the Virtual Environment**
+4. **Activate the Virtual Environment**
 
    On Unix or MacOS:
 
@@ -81,92 +71,54 @@ Setting up a Python virtual environment ensures that dependencies are managed ef
    On Windows:
 
    ```bash
-    .\venv\Scripts\activate
+   .\venv\Scripts\activate
    ```
 
-   - or
-
-   ```bash
-    powershell.exe -ExecutionPolicy Bypass -File .\venv\Scripts\Activate.ps1
-   ```
-
-3. **Upgrade pip**
-
-   ```bash
-   pip install --upgrade pip
-   ```
-
-4. **Install Dependencies**
+5. **Install Dependencies**
 
    ```bash
    pip install -r requirements.txt
-   pip install poetry
-   poetry lock
-   poetry install
    ```
 
-   - Deactivate the Virtual Environment
+### 🔧 Configuration
 
-   When you're done, deactivate the environment:
+1. **Define Tasks in `tasks.yaml`**
 
-   ```bash
-    deactivate
+   Create a `tasks.yaml` file in the root directory with the following structure:
+
+   ```yaml
+   tasks:
+     - name: "Example Task"
+       interval_seconds: 60
+       shell_command: "echo 'Hello, Qzark!'"
    ```
 
-5. **Docker Extra Steps**: Install Scoop and then install hadolint using scoop, refer to [Extra Steps](#-extra-steps)
+2. **Configure Notifications in `config.py`**
 
-### 🛸 Pre-Commit Hooks
-
-**Install and check pre-commit hooks**: MD files changes countermeasures, python format, python lint, yaml format, yaml lint, version control hook, changelog auto-generation
-
-```bash
-pre-commit install
-pre-commit install -t pre-commit
-pre-commit install -t pre-push
-pre-commit autoupdate
-pre-commit run --all-files
-```
-
-### 📌 Extra Steps
-
-1. **Docker**:
-
-   - Using MacOs or Linux:
-     ```bash
-     brew install hadolint
-     ```
-   - On Windows **as non-admin user**:
-     ```bash
-     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-     Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-     scoop install halint
-     ```
+   Update `config.py` with your notification settings (e.g., Telegram bot token, Discord webhook URL, SMTP credentials).
 
 ## 🛠️ Usage
 
-**To utilize the CI/CD pipeline, follow these steps**:
+1. **Run Qzark**
 
-1. **Configure GitHub Actions**
+   ```bash
+   python qzark.py
+   ```
 
-   - Navigate to the .github/workflows/ directory.
-   - Customize the ci.yml file according to your project's requirements.
-   - Customize the python.yml file to format and lint python code.
-   - Customize the node.yml file to format and lint node.js code if you are hosting frontend.
-   - Customize the release-controller file to add or remove **[backend, frontend, docker deployment, database]**
+2. **Command-Line Arguments**
 
-2. **Set Up Secrets**
+   - `--timeout`: Set task execution timeout (default: 50 seconds).
+   - `--log-level`: Set logging level (`INFO` or `DEBUG`).
 
-   - Go to your GitHub repository settings.
-   - Navigate to Secrets and add necessary secrets like CODECOV_KEY, etc.
+   Example:
 
-3. **Triggering the Pipeline**
+   ```bash
+   python qzark.py --timeout 100 --log-level DEBUG
+   ```
 
-   - Push to Branches: Pushing code to dev, test, prod, or main branches will trigger the pipeline.
-   - Pull Requests: Opening or updating pull requests will run tests and checks.
+3. **Stopping Qzark**
 
-4. **Monitoring Pipeline Status**
-   - Check the Actions tab in your GitHub repository to monitor the status of your workflows.
-   - Integrate notifications with Slack, Email, or other communication tools for real-time updates.
+   Press `Ctrl+C` to stop the application gracefully.
 
 ## 🤝 Contributing
 
