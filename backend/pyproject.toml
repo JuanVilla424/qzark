@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qzark-backend"
-version = "1.0.7"
+version = "1.0.8"
 description = "Qzark is a crontab task runner written in python and typescript to control HTTP or command invokes."
 authors = ["B <g46327wsj1.marbling129@passinbox.com>"]
 license = "GLPv2"
