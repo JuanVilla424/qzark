@@ -28,3 +28,8 @@ coverage>=7.2.5
 
 # Lint Check
 yamllint>=1.35.0
+
+# Qzark Deps
+pydantic>=2.10.0
+PyYAML>=6.0
+requests>=2.32.0
