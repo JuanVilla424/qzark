@@ -132,3 +132,6 @@ $RECYCLE.BIN/
 *.njsproj
 *.sln
 *.sw?
+
+# Qzark specific
+tasks.yaml

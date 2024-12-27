@@ -1,0 +1,14 @@
+# tasks.yaml
+
+tasks:
+  - name: "HelloTask"
+    interval_seconds: 10
+    shell_command: "echo 'Hello from Qzark!'"
+
+  - name: "FailingTask"
+    interval_seconds: 15
+    shell_command: "exit 1"
+
+  - name: "ListHome"
+    interval_seconds: 20
+    shell_command: "ls -la ~"
