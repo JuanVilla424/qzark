@@ -1,0 +1,22 @@
+---
+
+services:
+  redis:
+    image: "redis:7.0"  # Or any stable version
+    ports:
+      - "6379:6379"
+    # No container_name -> Let Docker Compose name it automatically
+
+  qzark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - redis
+    command: >
+      python -m src.main
+      --queue-backend redis
+      --redis-url redis://redis:6379/0
+      --log-level DEBUG
+    # No container_name -> avoids name conflicts
+    restart: unless-stopped
