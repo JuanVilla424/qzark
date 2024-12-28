@@ -57,29 +57,6 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def configure_logger(log_level: str) -> None:
-    """
-    Configures the logger's level based on the user-provided log_level.
-    If no log_level is specified, defaults to INFO.
-    """
-    import logging
-    import sys
-
-    numeric_level = logging.DEBUG if log_level == "DEBUG" else logging.INFO
-    logger.setLevel(numeric_level)
-
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    logger.debug("Logger set to %s", log_level)
-
-
 # ----------------------------------------
 # Notification Logic
 # ----------------------------------------
@@ -262,7 +239,6 @@ def main() -> None:
     and dynamic tasks from tasks.yaml.
     """
     args = parse_arguments()
-    configure_logger(args.log_level)
 
     # Fallback to config.py timeout if CLI not given
     final_timeout = args.timeout if args.timeout else (settings.timeout or 50)

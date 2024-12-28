@@ -1,5 +1,9 @@
 ---
 
+volumes:
+  qzark_logs:
+    driver: local
+
 services:
   redis:
     image: "redis:7.0"  # Or any stable version
@@ -13,6 +17,8 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - redis
+    volumes:
+      - qzark_logs:/app/logs:rw
     command: >
       python -m src.main
       --queue-backend redis
