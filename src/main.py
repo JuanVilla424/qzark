@@ -2,38 +2,33 @@
 main.py
 ~~~~~~~
 
-Entry point for the Qzark application:
-1) Reads tasks from `tasks.yaml` (no tasks are hardcoded).
+Entry point for the Qzark-like application:
+1) Reads tasks from `tasks.yaml` (or you can store them in Redis).
 2) Schedules them internally (no external cron).
 3) Uses notification settings from `config.py` to send alerts on failure.
-4) Implements a queue-based mechanism for task management.
+4) Supports a queue-backend that can be memory-based or Redis-based.
 """
 
 import argparse
 import time
-import queue
-import yaml
 import threading
 import subprocess
 import requests
 import smtplib
-from typing import Dict, Any, List, Optional
-
-from .logger import logger as logger
-from .config import settings  # Settings from config.py
+from typing import List, Dict, Any, Optional
+import yaml
+from src.logger import logger
+from src.config import settings
+from src.queue_storage import Task, TaskQueueInterface, MemoryQueue, RedisQueue
 
 
 def parse_arguments() -> argparse.Namespace:
     """
-    Parses command-line arguments.
-
-    Returns:
-        argparse.Namespace: Parsed arguments, including --timeout and --log-level.
+    Parses command-line arguments for the Qzark application.
     """
     parser = argparse.ArgumentParser(
-        description="Crontab-like task runner written in Python to control HTTP or command invokes."
+        description="Qzark-lke task runner with optional Redis queue storage."
     )
-
     parser.add_argument(
         "--timeout",
         type=int,
@@ -44,66 +39,36 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--log-level",
         choices=["INFO", "DEBUG"],
-        default=None,  # We handle 'None' in configure_logger, defaulting to INFO if not set
-        help="Logging level. Defaults to INFO if not provided. Choose from INFO or DEBUG.",
+        default="INFO",
+        help="Logging level. Defaults to INFO. Choose from: INFO, DEBUG.",
     )
-
+    parser.add_argument(
+        "--queue-backend",
+        choices=["memory", "redis"],
+        default="memory",
+        help="Select queue backend: memory or redis. Defaults to memory.",
+    )
+    parser.add_argument(
+        "--redis-url",
+        type=str,
+        default="redis://localhost:6379/0",
+        help="Redis connection URL, if using --queue-backend=redis.",
+    )
     return parser.parse_args()
 
 
-def configure_logger(log_level: Optional[str]) -> None:
-    """
-    Configures the logger's level. If log_level is provided (INFO or DEBUG),
-    set that level. Otherwise, default to INFO.
-
-    Args:
-        log_level (Optional[str]): The desired log level from command-line arguments.
-    """
-    import logging
-    import sys
-
-    # If not provided, default to INFO
-    effective_level = logging.INFO
-    if log_level == "DEBUG":
-        effective_level = logging.DEBUG
-
-    logger.setLevel(effective_level)
-
-    # If the logger has no handlers, add a StreamHandler
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    # Log a message showing what level we ended up with
-    logger.debug("Logger configured to level: %s", logging.getLevelName(effective_level))
-
-
+# ----------------------------------------
+# Notification Logic
+# ----------------------------------------
 class NotificationManager:
     """
     Handles sending notifications to Telegram, Discord, or SMTP.
-    Configuration is provided by `config.py`.
     """
 
     def __init__(self) -> None:
-        """
-        Initializes the NotificationManager using global `settings`
-        from config.py.
-        """
         self.settings = settings
 
     def notify_failure(self, task_name: str, error_message: str) -> None:
-        """
-        Sends a failure notification to any configured channel.
-
-        Args:
-            task_name (str): Name of the failing task.
-            error_message (str): Error details from the failure.
-        """
         message = f"Task '{task_name}' failed.\nError: {error_message}"
         logger.error("Notifying about failure: %s", message)
 
@@ -124,9 +89,6 @@ class NotificationManager:
             self._send_email(message)
 
     def _send_telegram_message(self, message: str) -> None:
-        """
-        Sends a message to Telegram if configured.
-        """
         try:
             url = (
                 f"https://api.telegram.org/bot{self.settings.telegram_bot_token}"
@@ -140,9 +102,6 @@ class NotificationManager:
             logger.error("Failed to send Telegram notification: %s", exc)
 
     def _send_discord_message(self, message: str) -> None:
-        """
-        Sends a message to Discord if configured.
-        """
         try:
             resp = requests.post(
                 self.settings.discord_webhook_url, json={"content": message}, timeout=10
@@ -153,91 +112,63 @@ class NotificationManager:
             logger.error("Failed to send Discord notification: %s", exc)
 
     def _send_email(self, message: str) -> None:
-        """
-        Sends an email via SMTP if configured.
-        """
         try:
-            server = self.settings.smtp_server
-            port = self.settings.smtp_port or 25
-            username = self.settings.smtp_username
-            password = self.settings.smtp_password
-            from_email = self.settings.smtp_from_email
-            to_email = self.settings.smtp_to_email
-
-            smtp_obj = smtplib.SMTP(server, port)
+            smtp_obj = smtplib.SMTP(self.settings.smtp_server, self.settings.smtp_port or 25)
             smtp_obj.starttls()
-            if username and password:
-                smtp_obj.login(username, password)
+            if self.settings.smtp_username and self.settings.smtp_password:
+                smtp_obj.login(self.settings.smtp_username, self.settings.smtp_password)
 
             subject = "Qzark Task Failure Notification"
             body = f"Subject: {subject}\n\n{message}"
-            smtp_obj.sendmail(from_email, [to_email], body)
+            smtp_obj.sendmail(self.settings.smtp_from_email, [self.settings.smtp_to_email], body)
             smtp_obj.quit()
-
             logger.info("SMTP email notification sent.")
         except Exception as exc:
             logger.error("Failed to send SMTP email notification: %s", exc)
 
 
-class Task:
-    """
-    Represents a shell-command-based task (no Python code to run).
-    """
-
-    def __init__(self, name: str, interval_seconds: int, shell_command: str):
-        self.name = name
-        self.interval_seconds = interval_seconds
-        self.shell_command = shell_command
-
-
+# ----------------------------------------
+# TaskManager
+# ----------------------------------------
 class TaskManager(threading.Thread):
     """
-    Runs tasks in a separate thread, checking intervals.
-    Uses a queue-based approach, plus an in-memory cache to track last run times.
-    If a task fails (non-zero exit code), a notification is sent.
+    A manager that pulls tasks from the queue, checks intervals, and runs them.
+    If a task fails (non-zero exit code), sends a notification.
     """
 
-    def __init__(self, tasks: List[Task], notifier: NotificationManager) -> None:
+    def __init__(self, task_queue: TaskQueueInterface, notifier: NotificationManager) -> None:
         super().__init__()
-        self.task_queue = queue.Queue()
+        self.task_queue = task_queue
         self.notifier = notifier
         self.running = True
 
-        # Populate the queue with initial tasks
-        for task in tasks:
-            self.task_queue.put(task)
-
-        # A simple in-memory "cache" dict to track last-run times by task name
+        # Cache to store last-run times by task name
         self.task_cache: Dict[str, float] = {}
 
     def run(self) -> None:
-        logger.info("TaskManager started (queue-based, no external cron).")
-
+        logger.info("TaskManager started using queue-based approach.")
         while self.running:
-            try:
-                task = self.task_queue.get_nowait()
-            except queue.Empty:
+            task = self.task_queue.pop()
+            if task is None:
+                # No tasks in queue; wait a bit
                 time.sleep(1)
                 continue
 
-            # Check if the task is due
+            # Check if it's time to run
             last_run = self.task_cache.get(task.name, 0.0)
             now = time.time()
             if (now - last_run) >= task.interval_seconds:
-                # It's time to run the task
                 self._run_task(task)
                 self.task_cache[task.name] = now
             else:
-                # Not time yet; put it back to the queue
+                # Not time yet
                 pass
 
-            # Reinsert the task to queue for future checks
-            self.task_queue.put(task)
-
-            # Sleep a bit to avoid tight loop
+            # Always requeue the task for future scheduling
+            self.task_queue.requeue(task)
             time.sleep(1)
 
-        logger.info("TaskManager stopping.")
+        logger.info("TaskManager thread stopping.")
 
     def stop(self) -> None:
         self.running = False
@@ -245,13 +176,8 @@ class TaskManager(threading.Thread):
     def _run_task(self, task: Task) -> None:
         logger.info("Running task '%s': %s", task.name, task.shell_command)
         try:
-            # Execute the shell command, capturing stdout/stderr
             result = subprocess.run(
-                task.shell_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=300,  # or any suitable default
+                task.shell_command, shell=True, capture_output=True, text=True, timeout=300
             )
             if result.returncode != 0:
                 error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
@@ -266,84 +192,90 @@ class TaskManager(threading.Thread):
             self.notifier.notify_failure(task.name, str(exc))
 
 
-def load_tasks(file_path: str) -> List[Task]:
+# ----------------------------------------
+# Helper: Load tasks from YAML
+# ----------------------------------------
+def load_tasks_from_yaml(file_path: str) -> List[Task]:
     """
-    Loads tasks from a YAML file and returns them as a list of Task objects.
+    Loads tasks from a YAML file into a list of Task objects.
 
     Args:
-        file_path (str): Path to the tasks YAML file.
+        file_path (str): path to tasks.yaml
 
     Returns:
-        List[Task]: A list of Task objects configured from the file.
+        List[Task]: all tasks declared in YAML.
     """
+    tasks_list = []
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
     except FileNotFoundError:
-        logger.error("Tasks file not found: %s", file_path)
-        return []
-    except yaml.YAMLError as exc:
-        logger.error("Error parsing YAML: %s", exc)
-        return []
+        logger.error("tasks.yaml file not found at: %s", file_path)
+        return tasks_list
+    except Exception as exc:
+        logger.error("Error reading tasks.yaml: %s", exc)
+        return tasks_list
 
-    tasks_data = data.get("tasks", [])
-    tasks_list = []
-    for item in tasks_data:
+    raw_tasks = data.get("tasks", [])
+    for item in raw_tasks:
         name = item.get("name")
         interval = item.get("interval_seconds", 60)
         cmd = item.get("shell_command")
-
         if not name or not cmd:
             logger.warning("Invalid task definition: %s", item)
             continue
-
-        tasks_list.append(Task(name=name, interval_seconds=interval, shell_command=cmd))
-    logger.info("Loaded %d tasks from '%s'.", len(tasks_list), file_path)
+        tasks_list.append(Task(name, interval, cmd))
+    logger.info("Loaded %d tasks from %s", len(tasks_list), file_path)
     return tasks_list
 
 
+# ----------------------------------------
+# Main
+# ----------------------------------------
 def main() -> None:
     """
-    Main entry point. Loads tasks from `tasks.yaml`, starts the TaskManager,
-    and runs indefinitely (or until Ctrl+C).
+    Main entry point for the Qzark application, supporting
+    memory or Redis-based queue, user-defined logging level,
+    and dynamic tasks from tasks.yaml.
     """
-    start_time = time.time()
-
-    # 1) Parse command-line arguments
     args = parse_arguments()
 
-    # 2) Configure logger based on --log-level (if provided), else default INFO
-    configure_logger(args.log_level)
+    # Fallback to config.py timeout if CLI not given
+    final_timeout = args.timeout if args.timeout else (settings.timeout or 50)
+    logger.info("Using final timeout: %d seconds", final_timeout)
 
-    # Determine final timeout from CLI or fallback to settings.timeout
-    timeout = args.timeout if args.timeout else settings.timeout
-    logger.info("Using timeout: %d seconds", timeout)
+    # Decide which queue to use
+    if args.queue_backend == "redis":
+        logger.info("Using RedisQueue at %s", args.redis_url)
+        task_queue = RedisQueue(redis_url=args.redis_url)
+    else:
+        logger.info("Using MemoryQueue in local process memory.")
+        task_queue = MemoryQueue()
 
-    logger.info("Starting Qzark application (queue-based tasks in YAML).")
+    # Load tasks from tasks.yaml
+    tasks = load_tasks_from_yaml("tasks.yaml")
+    # Push them into whichever queue we decided on
+    for t in tasks:
+        task_queue.push(t)
 
-    # 3) Load tasks from tasks.yaml
-    tasks = load_tasks("tasks.yaml")
-
-    # 4) Prepare NotificationManager from config.py
     notifier = NotificationManager()
 
-    # 5) Start TaskManager in its own thread
-    task_manager = TaskManager(tasks, notifier)
-    task_manager.start()
+    # Start up the TaskManager with our chosen queue
+    manager = TaskManager(task_queue, notifier)
+    manager.start()
 
+    start_time = time.time()
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        logger.info("Ctrl+C received, stopping TaskManager...")
+        logger.info("Keyboard interrupt received; stopping manager.")
     finally:
-        end_time = time.time()
-        time_elapsed = end_time - start_time
-        logger.debug("End. Session time: %.4f seconds", time_elapsed)
-        task_manager.stop()
-        task_manager.join()
+        manager.stop()
+        manager.join()
 
-    logger.info("Qzark application finished.")
+        end_time = time.time()
+        logger.info("Qzark application finished. Elapsed: %.4f seconds", end_time - start_time)
 
 
 if __name__ == "__main__":
